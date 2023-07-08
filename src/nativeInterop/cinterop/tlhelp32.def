@@ -1,0 +1,2 @@
+headers = windows.h \ tlhelp32.h
+headerFilter = tlhelp32.h

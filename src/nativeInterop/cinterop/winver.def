@@ -1,0 +1,3 @@
+headers = windows.h
+
+linkerOpts.mingw = -lversion

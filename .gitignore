@@ -14,8 +14,8 @@ gradle-app.setting
 # Cache of project
 .gradletasknamecache
 
-# Eclipse Gradle plugin generated files
-# Eclipse Core
-.project
-# JDT-specific (Eclipse Java Development Tools)
-.classpath
+# Ignore unneeded stuff from discord_game_sdk
+discord_game_sdk/
+!discord_game_sdk/c/
+!discord_game_sdk/lib/
+!discord_game_sdk/README.md

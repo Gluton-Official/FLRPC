@@ -1,0 +1,4 @@
+headers = windows.h \ psapi.h
+headerFilter = psapi.h
+
+linkerOpts.mingw = -lpsapi
