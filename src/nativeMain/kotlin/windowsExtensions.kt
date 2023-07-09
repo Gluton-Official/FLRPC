@@ -16,6 +16,10 @@ import platform.windows.DWORD
 import platform.windows.DWORDVar
 import platform.windows.ERROR_SUCCESS
 import platform.windows.FALSE
+import platform.windows.FORMAT_MESSAGE_FROM_SYSTEM
+import platform.windows.FORMAT_MESSAGE_IGNORE_INSERTS
+import platform.windows.FormatMessageW
+import platform.windows.GetLastError
 import platform.windows.GetWindowTextLengthW
 import platform.windows.GetWindowTextW
 import platform.windows.GetWindowThreadProcessId
@@ -23,12 +27,14 @@ import platform.windows.HANDLE
 import platform.windows.HKEY
 import platform.windows.HWND
 import platform.windows.IsWindowVisible
+import platform.windows.LANG_NEUTRAL
 import platform.windows.MAX_PATH
 import platform.windows.OpenProcess
 import platform.windows.QueryFullProcessImageNameW
 import platform.windows.RRF_RT_REG_SZ
 import platform.windows.ReadProcessMemory
 import platform.windows.RegGetValueW
+import platform.windows.SUBLANG_DEFAULT
 import platform.windows.TRUE
 
 inline fun HANDLE.readInt(address: Long): Int = useIntBuffer {
@@ -77,7 +83,8 @@ inline fun <T> DWORD.useAsProcess(accessFlags: DWORD, inheritHandle: Boolean = f
     return Result.success(block(handle).also { handle.close() })
 }
 
-inline fun <T> HANDLE.use(block: (HANDLE) -> T) = block(this).also { close() }
+@Throws(RuntimeException::class)
+inline fun <T> HANDLE.use(block: (HANDLE) -> T) = block(this).also { if (!close()) throwWindowsError("Unable to close") }
 inline fun HANDLE.close(): Boolean = CloseHandle(this).toBoolean()
 
 inline val HANDLE.executablePath: String?
@@ -92,25 +99,31 @@ inline fun readRegistryString(
     subKey: String? = null,
     name: String? = null,
 ): String? = useUtf16StringBuffer(MAX_PATH) { stringPtr ->
-    MAX_PATH.toUInt().usePinned {
-        it
-    }
     val valueLength = alloc<DWORDVar>().apply { value = MAX_PATH.toUInt() }
     RegGetValueW(hKey, subKey, name, RRF_RT_REG_SZ.toUInt(), null, stringPtr, valueLength.ptr)
         .takeIf { it == ERROR_SUCCESS } ?: return null
 }
 
-//fun getWindowsError(): Pair<DWORD, String> {
-//    val errorCode = GetLastError()
-//    return errorCode to useUtf16StringBuffer(256) {
-//        FormatMessageW(
-//            (FORMAT_MESSAGE_FROM_SYSTEM or FORMAT_MESSAGE_IGNORE_INSERTS).toUInt(),
-//            null,
-//            errorCode,
-//            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-//            it,
-//            256u,
-//            null
-//        )
-//    }
-//}
+@Suppress("FunctionName")
+inline fun MAKELANGID(primaryLang: Int, secondaryLang: Int): DWORD = ((primaryLang shl 10) or secondaryLang).toUInt()
+
+@Throws(RuntimeException::class)
+fun throwWindowsError(message: String? = null): Nothing {
+    val (errorCode, errorName) = getWindowsError()
+    throw RuntimeException("$errorCode: $errorName${message?.let { ": $it" } ?: ""}")
+}
+
+fun getWindowsError(): Pair<DWORD, String> {
+    val errorCode = GetLastError()
+    return errorCode to useUtf16StringBuffer(256) {
+        FormatMessageW(
+            (FORMAT_MESSAGE_FROM_SYSTEM or FORMAT_MESSAGE_IGNORE_INSERTS).toUInt(),
+            null,
+            errorCode,
+            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+            it,
+            256u,
+            null
+        )
+    }
+}
