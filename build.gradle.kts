@@ -1,3 +1,8 @@
+import org.jetbrains.kotlin.cli.common.CompilerSystemProperties
+import org.jetbrains.kotlin.cli.common.isWindows
+import org.jetbrains.kotlin.gradle.utils.`is`
+import org.jetbrains.kotlin.konan.target.Architecture
+import org.jetbrains.kotlin.konan.target.KonanTarget
 
 plugins {
     kotlin("multiplatform") version "1.9.0"
@@ -11,12 +16,11 @@ repositories {
 }
 
 kotlin {
-    val hostOs = System.getProperty("os.name")
-    val isMingwX64 = hostOs.startsWith("Windows")
+    val hostOs = CompilerSystemProperties.OS_NAME.safeValue
     val nativeTarget = when {
         hostOs == "Mac OS X" -> macosX64("native")
         hostOs == "Linux" -> linuxX64("native")
-        isMingwX64 -> mingwX64("native")
+        isWindows -> mingwX64("native")
         else -> throw GradleException("Host OS is not supported in Kotlin/Native.")
     }
 
@@ -31,7 +35,7 @@ kotlin {
                     packageName("discord.gamesdk")
                     includeDirs {
                         allHeaders(
-                            project.file("discord_game_sdk/c/")
+                            project.file("libs/discord_game_sdk/c/")
                         )
                     }
                 }
@@ -43,6 +47,11 @@ kotlin {
         binaries {
             executable {
                 entryPoint = "main"
+            }
+            all {
+                if (isWindows && System.getProperty("os.arch") == "x86_64") {
+                    linkerOpts += listOf("-L$projectDir/libs/discord_game_sdk/lib/x86_64", "-ldiscord_game_sdk", "-v")
+                }
             }
         }
     }
