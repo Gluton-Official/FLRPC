@@ -7,5 +7,5 @@
 /dataSources/
 /dataSources.local.xml
 
-# Ignore all the plugin .xml files except a few
+# Ignore all the plugin .xml files
 *.xml
