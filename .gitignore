@@ -15,7 +15,7 @@ gradle-app.setting
 .gradletasknamecache
 
 # Ignore unneeded stuff from discord_game_sdk
-discord_game_sdk/
-!discord_game_sdk/c/
-!discord_game_sdk/lib/
+discord_game_sdk/**
+!discord_game_sdk/c/**
+!discord_game_sdk/lib/**
 !discord_game_sdk/README.md
