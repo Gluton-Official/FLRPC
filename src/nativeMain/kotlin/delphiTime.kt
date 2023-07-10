@@ -13,3 +13,4 @@ fun delphiLocalEpochDaysToUnixUtcEpochSeconds(daysSinceDelphiEpoch: Double): Lon
         .toInstant(TimeZone.currentSystemDefault())
         .epochSeconds
 }
+fun Double.delphiLocalEpochDaysToUnixUtcEpochSeconds() = delphiLocalEpochDaysToUnixUtcEpochSeconds(this)

@@ -17,10 +17,6 @@ import platform.windows.HANDLE
 import platform.windows.INVALID_HANDLE_VALUE
 import platform.windows.MAX_PATH
 import platform.windows.PROCESS_VM_READ
-import readDouble
-import readInt
-import readLong
-import readWString
 import tlhelp32.CreateToolhelp32Snapshot
 import tlhelp32.MODULEENTRY32W
 import tlhelp32.Module32FirstW
@@ -28,7 +24,9 @@ import tlhelp32.Module32NextW
 import tlhelp32.TH32CS_SNAPMODULE
 import toBoolean
 import use
-import windows.WindowsProcess
+import windows.Process
+import windows.StringSize
+import windows.address
 import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalForeignApi::class)
@@ -51,35 +49,32 @@ class FLEngine(
                 null
             }?.toLong() ?: error("Unable to find engine")
         } ?: error("Unable to take snapshot: ${GetLastError()}")
-
-    // TODO: create MemoryAddress delegate for a HandleProvider class
-    private val selectedPatternAddress = 0xF5CCF8.engineOffset
-    private val bpmAddress = 0xF5FAF0.engineOffset
-    private val isPlayingAddress = 0x1080F0C.engineOffset
-    private val dateCreateAddress = 0x1082938.engineOffset
-    private val timeSpentMarkerAddress = 0x1082940.engineOffset
-    private val flpPathPointerAddress = 0x10829F0.engineOffset
-    private val songPositionMillisecondsAddress = 0x10A6698.engineOffset
-
-    private val Int.engineOffset: Long get() = memoryAddressOffset + this
     
     private var previousTimeSpent: Long = 0
 
-    fun use(block: FLEngineProcess.() -> Unit): Result<Unit> =
-        openProcess(processId, PROCESS_VM_READ)?.let { handle -> Result.success(FLEngineProcess(handle).use(block)) }
-            ?: Result.failure(RuntimeException("Unable to open process with id $processId"))
+    fun use(block: FLEngineProcess.() -> Unit): Result<Unit> {
+        val handle = openProcess(processId, PROCESS_VM_READ)
+        return if (handle != null) {
+            Result.success(FLEngineProcess(handle, memoryAddressOffset).use(block))
+        } else {
+            Result.failure(RuntimeException("Unable to open process with id $processId"))
+        }
+    }
 
     @Suppress("unused")
-    inner class FLEngineProcess internal constructor(handle: HANDLE) : WindowsProcess(handle) {
+    inner class FLEngineProcess internal constructor(handle: HANDLE, memoryAddressOffset: Long) :
+        Process(handle, memoryAddressOffset) {
 
-        val selectedPattern: Int get() = handle.readInt(selectedPatternAddress)
-        val bpm: Int get() = handle.readInt(bpmAddress)
-        val isPlaying: Boolean get() = handle.readInt(isPlayingAddress).toBoolean()
-        val dateCreated: Long get() = delphiLocalEpochDaysToUnixUtcEpochSeconds(handle.readDouble(dateCreateAddress))
-        private val timeSpentMarker: Long get() = delphiLocalEpochDaysToUnixUtcEpochSeconds(handle.readDouble(timeSpentMarkerAddress))
-        val flpPath: String get() = handle.readWString(handle.readLong(flpPathPointerAddress), MAX_PATH)
+        val selectedPattern: Int by address(0xF5CCF8)
+        val bpm: Int by address(0xF5FAF0)
+        val isPlaying: Boolean by address(0x1080F0C, Int::toBoolean)
+        val dateCreated: Long by address(0x1082938, Double::delphiLocalEpochDaysToUnixUtcEpochSeconds)
+        private val timeSpentMarker: Long by address(0x1082940, Double::delphiLocalEpochDaysToUnixUtcEpochSeconds)
+        private val flpPathAddress: Long by address(0x10829F0) { address: Long -> address - memoryAddressOffset }
+        val flpPath: String by address(::flpPathAddress, MAX_PATH, StringSize.Utf16)
+        val songPositionMillis: Long by address(0x10A6698)
+
         val flpName: String get() = flpPath.toPath().name
-        val songPositionMillis: Long get() = handle.readLong(songPositionMillisecondsAddress)
 
         private val isIdle: Boolean get() = !isPlaying && (flStudio.isMinimized || !flStudio.isFocused)
 

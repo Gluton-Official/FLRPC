@@ -1,5 +1,7 @@
 @file:OptIn(ExperimentalForeignApi::class)
 
+import kotlinx.cinterop.ByteVar
+import kotlinx.cinterop.CVariable
 import kotlinx.cinterop.DoubleVar
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.IntVar
@@ -37,6 +39,9 @@ import platform.windows.RegGetValueW
 import platform.windows.SUBLANG_DEFAULT
 import platform.windows.TRUE
 
+inline fun <reified T : CVariable> HANDLE.read(address: Long): T = useBuffer {
+    ReadProcessMemory(this@read, address.toCPointer(), it, sizeOf<T>().toULong(), null)
+}
 inline fun HANDLE.readInt(address: Long): Int = useIntBuffer {
     ReadProcessMemory(this@readInt, address.toCPointer(), it, sizeOf<IntVar>().toULong(), null)
 }
@@ -45,6 +50,9 @@ inline fun HANDLE.readLong(address: Long): Long = useLongBuffer {
 }
 inline fun HANDLE.readDouble(address: Long): Double = useDoubleBuffer {
     ReadProcessMemory(this@readDouble, address.toCPointer(), it, sizeOf<DoubleVar>().toULong(), null)
+}
+inline fun HANDLE.readString(address: Long, length: Int): String = useUtf8StringBuffer(length) {
+    ReadProcessMemory(this@readString, address.toCPointer(), it, (sizeOf<ByteVar>() * length).toULong(), null)
 }
 inline fun HANDLE.readWString(address: Long, length: Int): String = useUtf16StringBuffer(length) {
     ReadProcessMemory(this@readWString, address.toCPointer(), it, (sizeOf<UShortVar>() * length).toULong(), null)

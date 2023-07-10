@@ -1,6 +1,7 @@
 import discord.Discord
 import discord.activityManager
 import discord.gamesdk.DiscordActivity
+import discord.name
 import discord.runCallbacks
 import discord.setLogHook
 import discord.updateActivity
@@ -18,7 +19,7 @@ const val APP_ID = 1119828627786322010
 fun main() {
     val discord = Discord(APP_ID)
     discord.setLogHook { logLevel, message ->
-        println("Discord/$logLevel: $message")
+        println("Discord/${logLevel.name}: $message")
     }
 
     val flStudio = FLStudio.attach() ?: run {
@@ -43,6 +44,7 @@ fun main() {
                         large_image.write("fl")
                         large_text.write(flStudio.name ?: "FL Studio")
                     }
+                    // TODO: use song position as time elapsed?
                     instance = false
                 }.onFailure { throwable ->
                     error("Failed to use engine${throwable.message?.let { ": $it" } ?: ""}")

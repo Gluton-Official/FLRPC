@@ -134,6 +134,9 @@ inline fun <reified T : CVariable> useArrayBuffer(size: Int, block: MemScope.(bu
 inline fun <reified T : CVariable> useArrayBuffer(size: Int, block: MemScope.(bufferPointer: CArrayPointer<T>) -> Unit): Array<T> = memScoped {
     allocArray<T>(size).also { block(it) }.run { Array(size, ::get) }
 }
+inline fun useUtf8StringBuffer(size: Int, block: MemScope.(bufferPointer: CArrayPointer<ByteVar>) -> Unit): String = memScoped {
+    allocArray<ByteVar>(size).also { block(it) }.toKString()
+}
 inline fun useUtf16StringBuffer(size: Int, block: MemScope.(bufferPointer: CArrayPointer<UShortVar>) -> Unit): String = memScoped {
     allocArray<UShortVar>(size).also { block(it) }.toKString()
 }
