@@ -1,8 +1,5 @@
 import org.jetbrains.kotlin.cli.common.CompilerSystemProperties
 import org.jetbrains.kotlin.cli.common.isWindows
-import org.jetbrains.kotlin.gradle.utils.`is`
-import org.jetbrains.kotlin.konan.target.Architecture
-import org.jetbrains.kotlin.konan.target.KonanTarget
 
 plugins {
     kotlin("multiplatform") version "1.9.0"
@@ -49,7 +46,7 @@ kotlin {
                 entryPoint = "main"
             }
             all {
-                if (isWindows && System.getProperty("os.arch") == "x86_64") {
+                if (isWindows && System.getProperty("os.arch") in listOf("amd64", "x86_64")) {
                     linkerOpts += listOf("-L$projectDir/libs/discord_game_sdk/lib/x86_64", "-ldiscord_game_sdk", "-v")
                 }
             }
@@ -69,7 +66,7 @@ kotlin {
 
 tasks {
     val includeDllsDebug = register<Copy>("includeDllsDebug") {
-        from(project.file("discord_game_sdk/lib/x86_64/discord_game_sdk.dll"))
+        from(project.file("libs/discord_game_sdk/lib/x86_64/discord_game_sdk.dll"))
         into(buildDir.resolve("bin/native/debugExecutable"))
     }
 
