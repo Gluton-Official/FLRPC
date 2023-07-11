@@ -37,12 +37,12 @@ fun main() {
     fun updateRPC() {
         memScoped {
             val activity = alloc<DiscordActivity> {
-                flStudio.engine.use {
+                flStudio.useEngine {
                     details.write(flpName)
                     state.write(formattedTimeSpent)
                     assets.apply {
                         large_image.write("fl")
-                        large_text.write(flStudio.name ?: "FL Studio")
+                        large_text.write(flStudio.name)
                     }
                     // TODO: use song position as time elapsed?
                     instance = false

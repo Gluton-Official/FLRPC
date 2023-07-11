@@ -1,6 +1,7 @@
 @file:OptIn(ExperimentalForeignApi::class)
 
 import kotlinx.cinterop.ByteVar
+import kotlinx.cinterop.CValue
 import kotlinx.cinterop.CVariable
 import kotlinx.cinterop.DoubleVar
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -8,10 +9,11 @@ import kotlinx.cinterop.IntVar
 import kotlinx.cinterop.LongVar
 import kotlinx.cinterop.UShortVar
 import kotlinx.cinterop.alloc
+import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
+import kotlinx.cinterop.readValue
 import kotlinx.cinterop.sizeOf
 import kotlinx.cinterop.toCPointer
-import kotlinx.cinterop.usePinned
 import kotlinx.cinterop.value
 import platform.windows.CloseHandle
 import platform.windows.DWORD
@@ -28,6 +30,7 @@ import platform.windows.GetWindowThreadProcessId
 import platform.windows.HANDLE
 import platform.windows.HKEY
 import platform.windows.HWND
+import platform.windows.INVALID_HANDLE_VALUE
 import platform.windows.IsWindowVisible
 import platform.windows.LANG_NEUTRAL
 import platform.windows.MAX_PATH
@@ -38,6 +41,11 @@ import platform.windows.ReadProcessMemory
 import platform.windows.RegGetValueW
 import platform.windows.SUBLANG_DEFAULT
 import platform.windows.TRUE
+import tlhelp32.CreateToolhelp32Snapshot
+import tlhelp32.MODULEENTRY32W
+import tlhelp32.Module32FirstW
+import tlhelp32.Module32NextW
+import tlhelp32.TH32CS_SNAPMODULE
 
 inline fun <reified T : CVariable> HANDLE.read(address: Long): T = useBuffer {
     ReadProcessMemory(this@read, address.toCPointer(), it, sizeOf<T>().toULong(), null)
@@ -76,23 +84,34 @@ inline val HWND.processId: DWORD?
 inline val HWND.isVisible: Boolean
     get() = IsWindowVisible(this).toBoolean()
 
-inline fun HWND.openProcess(accessFlags: DWORD, inheritHandle: Boolean = false): HANDLE? {
-    val processId = this.processId ?: return null
-    return OpenProcess(accessFlags, inheritHandle.toInt(), processId)
+inline fun openProcess(processId: UInt, accessFlags: Int, inheritHandle: Boolean = false): HANDLE? =
+    OpenProcess(accessFlags.toUInt(), inheritHandle.toInt(), processId)
+inline fun openProcess(windowHandle: HWND?, accessFlags: Int, inheritHandle: Boolean = false): HANDLE? {
+    val processId = windowHandle?.processId ?: return null
+    return openProcess(processId, accessFlags, inheritHandle)
 }
 
-inline fun openProcess(processId: UInt, accessFlags: Int, inheritHandle: Boolean = false): HANDLE? =
-    processId.openAsProcess(accessFlags.toUInt(), inheritHandle)
-inline fun DWORD.openAsProcess(accessFlags: DWORD, inheritHandle: Boolean = false): HANDLE? =
-    OpenProcess(accessFlags, inheritHandle.toInt(), this)
-inline fun <T> DWORD.useAsProcess(accessFlags: DWORD, inheritHandle: Boolean = false, block: HANDLE.() -> T): Result<T> {
-    val handle = openAsProcess(accessFlags, inheritHandle)
-        ?: return Result.failure(NullPointerException("Handle from process with id $this was null"))
-    return Result.success(block(handle).also { handle.close() })
+//fun createProcessSnapshot(processId: UInt, flags: Int): HANDLE? =
+//    CreateToolhelp32Snapshot(flags.toUInt(), processId).takeIf { it != INVALID_HANDLE_VALUE }
+fun getSnapshotOfProcessModules(processId: UInt): List<CValue<MODULEENTRY32W>> {
+    val snapshotHandle = CreateToolhelp32Snapshot(TH32CS_SNAPMODULE.toUInt(), processId)
+        .takeIf { it != INVALID_HANDLE_VALUE } ?: throwLastWindowsError("Unable to take snapshot")
+    return snapshotHandle.use {
+        buildList {
+            memScoped {
+                val moduleEntry = alloc<MODULEENTRY32W> {
+                    dwSize = sizeOf<MODULEENTRY32W>().toUInt()
+                }
+                if (Module32FirstW(snapshotHandle, moduleEntry.ptr).toBoolean()) do {
+                    add(moduleEntry.readValue())
+                } while (Module32NextW(snapshotHandle, moduleEntry.ptr).toBoolean())
+            }
+        }
+    }
 }
 
 @Throws(RuntimeException::class)
-inline fun <T> HANDLE.use(block: (HANDLE) -> T) = block(this).also { if (!close()) throwWindowsError("Unable to close") }
+inline fun <T> HANDLE.use(block: (HANDLE) -> T) = block(this).also { if (!close()) throwLastWindowsError("Unable to close") }
 inline fun HANDLE.close(): Boolean = CloseHandle(this).toBoolean()
 
 inline val HANDLE.executablePath: String?
@@ -116,12 +135,12 @@ inline fun readRegistryString(
 inline fun MAKELANGID(primaryLang: Int, secondaryLang: Int): DWORD = ((primaryLang shl 10) or secondaryLang).toUInt()
 
 @Throws(RuntimeException::class)
-fun throwWindowsError(message: String? = null): Nothing {
-    val (errorCode, errorName) = getWindowsError()
+fun throwLastWindowsError(message: String? = null): Nothing {
+    val (errorCode, errorName) = getLastWindowsError()
     throw RuntimeException("$errorCode: $errorName${message?.let { ": $it" } ?: ""}")
 }
 
-fun getWindowsError(): Pair<DWORD, String> {
+fun getLastWindowsError(): Pair<DWORD, String> {
     val errorCode = GetLastError()
     return errorCode to useUtf16StringBuffer(256) {
         FormatMessageW(
