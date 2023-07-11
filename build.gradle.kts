@@ -56,7 +56,7 @@ kotlin {
         val nativeMain by getting {
             dependencies {
                 implementation("org.jetbrains.kotlinx:kotlinx-datetime:0.4.0")
-                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.6.3-native-mt")
+                implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.2")
                 implementation("com.squareup.okio:okio:3.4.0")
             }
         }
