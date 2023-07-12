@@ -6,6 +6,7 @@ import discord.runCallbacks
 import discord.setLogHook
 import discord.updateActivity
 import flstudio.FLStudio
+import flstudio.FLStudio.Companion.formattedTimeSpent
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped

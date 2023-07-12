@@ -1,6 +1,9 @@
 package flstudio
 
-import delphiLocalEpochDaysToUnixUtcEpochSeconds
+import Process
+import StringSize
+import address
+import delphi.DelphiInstant
 import executablePath
 import getSnapshotOfProcessModules
 import isVisible
@@ -12,6 +15,7 @@ import kotlinx.cinterop.toLong
 import kotlinx.cinterop.useContents
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
+import kotlinx.datetime.TimeZone
 import okio.Path.Companion.toPath
 import okio.use
 import openProcess
@@ -37,14 +41,11 @@ import takeUnlessZero
 import title
 import toBoolean
 import toInt
+import use
 import usePointerVarBuffer
 import useUIntBuffer
-import Process
-import StringSize
-import address
-import platform.windows.HWND__
-import use
-import kotlin.time.Duration.Companion.seconds
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalForeignApi::class)
 class FLStudio private constructor(private val windowHandle: HWND) {
@@ -71,7 +72,7 @@ class FLStudio private constructor(private val windowHandle: HWND) {
 
     sealed interface FLEngine {
         val version: String
-        val songPositionMillis: Long
+        val songPosition: Duration
         val selectedPattern: Int
         val bpm: Int
         val isPlaying: Boolean
@@ -80,11 +81,10 @@ class FLStudio private constructor(private val windowHandle: HWND) {
         val flpName: String
 
         val dateCreated: Instant
-        val timeSpentMillis: Long
-        val formattedTimeSpent: String
+        val timeSpent: Duration
     }
 
-    private var previousTimeSpent: Long = 0
+    private var previousTimeSpent: Duration = Duration.ZERO
     private val engineAddressOffset: Long = getSnapshotOfProcessModules(processId)
         .find { it.useContents { szModule.toKStringFromUtf16().startsWith("FLEngine") } }
         ?.useContents { modBaseAddr.toLong() } ?: error("Unable to find FLEngine's memory address")
@@ -94,7 +94,7 @@ class FLStudio private constructor(private val windowHandle: HWND) {
         override val addressOffset: Long by this@FLStudio::engineAddressOffset
 
         override val version: String by address(0x497F67C, 32, StringSize.Utf16)
-        override val songPositionMillis: Long by address(0x10A6698)
+        override val songPosition: Duration by address(0x10A6698) { millis: Long -> millis.milliseconds }
         override val selectedPattern: Int by address(0xF5CCF8)
         override val bpm: Int by address(0xF5FAF0)
         override val isPlaying: Boolean by address(0x1080F0C, Int::toBoolean)
@@ -104,30 +104,35 @@ class FLStudio private constructor(private val windowHandle: HWND) {
         override val flpName: String get() = flpPath.toPath().name
 
         override val dateCreated: Instant by address(0x1082938) { days: Double ->
-            Instant.fromEpochSeconds(days.delphiLocalEpochDaysToUnixUtcEpochSeconds())
+            DelphiInstant.fromEpochDays(days, TimeZone.currentSystemDefault()).toUnixInstant()
         }
-        override val timeSpentMillis: Long get() {
-            if (!isIdle) {
-                previousTimeSpent = (Clock.System.now().epochSeconds - timeSpentMarker)
+        override val timeSpent: Duration
+            get() {
+                if (!isIdle || previousTimeSpent == Duration.ZERO) {
+                    previousTimeSpent = Clock.System.now() - timeSpentStartMarker
+                }
+                return previousTimeSpent
             }
-            return previousTimeSpent
+        private val timeSpentStartMarker: Instant by address(0x1082940) { days: Double ->
+            DelphiInstant.fromEpochDays(days, TimeZone.currentSystemDefault()).toUnixInstant()
         }
-        private val timeSpentMarker: Long by address(0x1082940, Double::delphiLocalEpochDaysToUnixUtcEpochSeconds)
         private val isIdle: Boolean get() = !isPlaying && (isMinimized || !isFocused)
-        override val formattedTimeSpent: String get() {
-            val duration = timeSpentMillis.seconds
-            val minutes = duration.inWholeMinutes
-            val hours = duration.inWholeHours
-            return when {
-                minutes < 1 -> "less than a minute"
-                minutes == 1L -> "1 minute"
-                hours < 2 -> "$minutes minutes"
-                else -> "$hours hours"
-            }
-        }
-    } 
+    }
 
     companion object {
+        val FLEngine.formattedTimeSpent: String
+            get() {
+                val timeSpent = timeSpent
+                val minutes = timeSpent.inWholeMinutes
+                val hours = timeSpent.inWholeHours
+                return when {
+                    minutes < 1 -> "less than a minute"
+                    minutes == 1L -> "1 minute"
+                    hours < 2 -> "$minutes minutes"
+                    else -> "$hours hours"
+                }
+            }
+
         private val flExecutablePath: String? by lazy {
             readRegistryString(HKEY_CURRENT_USER, "SOFTWARE\\Image-Line\\Shared\\Paths", "FL Studio")
         }
@@ -144,7 +149,7 @@ class FLStudio private constructor(private val windowHandle: HWND) {
                 return isFl.not().toInt()
             }
 
-            return usePointerVarBuffer<HWND__> { bufferPointer ->
+            return usePointerVarBuffer { bufferPointer ->
                 EnumWindows(staticCFunction(::findFLWindowHandle), bufferPointer.rawValue.toLong())
             }
         }
