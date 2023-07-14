@@ -48,6 +48,12 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalForeignApi::class)
+private val flExecutablePath: String? by lazy {
+    readRegistryString(HKEY_CURRENT_USER, "SOFTWARE\\Image-Line\\Shared\\Paths", "FL Studio")
+}
+
+@Suppress("MemberVisibilityCanBePrivate")
+@OptIn(ExperimentalForeignApi::class)
 class FLStudio private constructor(private val windowHandle: HWND) {
     val processId: DWORD = windowHandle.processId?.takeUnlessZero()
         ?: error("Unable to get process id on initialization")
@@ -133,33 +139,37 @@ class FLStudio private constructor(private val windowHandle: HWND) {
                 }
             }
 
-        private val flExecutablePath: String? by lazy {
-            readRegistryString(HKEY_CURRENT_USER, "SOFTWARE\\Image-Line\\Shared\\Paths", "FL Studio")
-        }
-
         fun attach(): FLStudio? = getFLWindowHandle()?.let(::FLStudio)
-        private fun getFLWindowHandle(): HWND? {
-            if (flExecutablePath == null) return null
-
-            fun findFLWindowHandle(windowHandle: HWND?, hwndPointerAddress: LPARAM): WINBOOL {
-                val isFl = checkIfFLWindow(windowHandle)
-                if (isFl) {
-                    hwndPointerAddress.toCPointer<HWNDVar>()?.set(windowHandle)
-                }
-                return isFl.not().toInt()
-            }
-
-            return usePointerVarBuffer { bufferPointer ->
-                EnumWindows(staticCFunction(::findFLWindowHandle), bufferPointer.rawValue.toLong())
-            }
-        }
-        private inline fun checkIfFLWindow(windowHandle: HWND?): Boolean {
-            with(windowHandle) {
-                if (this == null || !isVisible || title.isNullOrBlank()) return false
-            }
-            return openProcess(windowHandle, PROCESS_VM_READ or PROCESS_QUERY_INFORMATION)?.use {
-                it.executablePath == flExecutablePath
-            } ?: false
-        }
     }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private fun getFLWindowHandle(): HWND? {
+    if (flExecutablePath == null) return null
+
+    return usePointerVarBuffer { bufferPointer ->
+        EnumWindows(staticCFunction(::findFLWindow), lParam = bufferPointer.rawValue.toLong())
+    }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private inline fun findFLWindow(windowHandle: HWND?, hwndPointerAddress: LPARAM): WINBOOL {
+    val isFLWindow = checkIfFLWindow(windowHandle)
+    if (isFLWindow) {
+        hwndPointerAddress.toCPointer<HWNDVar>()?.set(windowHandle)
+    }
+
+    val enumNext = !isFLWindow
+    return enumNext.toInt()
+}
+
+@OptIn(ExperimentalForeignApi::class)
+private inline fun checkIfFLWindow(windowHandle: HWND?): Boolean {
+    with(windowHandle) {
+        if (this == null || !isVisible || title.isNullOrBlank()) return false
+    }
+
+    return openProcess(windowHandle, PROCESS_VM_READ or PROCESS_QUERY_INFORMATION)?.use { handle ->
+        handle.executablePath == flExecutablePath
+    } ?: false
 }

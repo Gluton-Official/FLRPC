@@ -1,5 +1,6 @@
 import org.jetbrains.kotlin.cli.common.CompilerSystemProperties
 import org.jetbrains.kotlin.cli.common.isWindows
+import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 
 plugins {
     kotlin("multiplatform") version "1.9.0"
@@ -23,22 +24,24 @@ kotlin {
 
     nativeTarget.apply {
         compilations.getByName("main") {
-            compilerOptions.configure {
-                freeCompilerArgs.add("-Xcontext-receivers")
-            }
             cinterops {
                 val discordSdk by creating {
                     defFile(project.file("src/nativeInterop/cinterop/discord_game_sdk.def"))
                     packageName("discord.gamesdk")
                     includeDirs {
-                        allHeaders(
-                            project.file("libs/discord_game_sdk/c/")
-                        )
+                        allHeaders(project.file("libs/discord_game_sdk/c/"))
                     }
                 }
                 val psapi by creating
                 val winver by creating
                 val tlhelp32 by creating
+            }
+            compilerOptions.configure {
+                freeCompilerArgs.addAll(
+                    "-Xcontext-receivers",
+                )
+                languageVersion.set(KotlinVersion.KOTLIN_2_0)
+                apiVersion.set(KotlinVersion.KOTLIN_2_0)
             }
         }
         binaries {
@@ -47,7 +50,11 @@ kotlin {
             }
             all {
                 if (isWindows && System.getProperty("os.arch") in listOf("amd64", "x86_64")) {
-                    linkerOpts += listOf("-L$projectDir/libs/discord_game_sdk/lib/x86_64", "-ldiscord_game_sdk", "-v")
+                    linkerOpts += listOf(
+                        "-L$projectDir/libs/discord_game_sdk/lib/x86_64",
+                        "-ldiscord_game_sdk",
+                        "-v"
+                    )
                 }
             }
         }
