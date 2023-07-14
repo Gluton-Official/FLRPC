@@ -1,5 +1,7 @@
 package discord
 
+import NativePointerHolder
+import NativePointerHolder.Companion.use
 import discord.gamesdk.DISCORD_ACHIEVEMENT_MANAGER_VERSION
 import discord.gamesdk.DISCORD_ACTIVITY_MANAGER_VERSION
 import discord.gamesdk.DISCORD_APPLICATION_MANAGER_VERSION
@@ -17,8 +19,9 @@ import discord.gamesdk.DiscordClientId
 import discord.gamesdk.DiscordCreate
 import discord.gamesdk.DiscordCreateFlags_Default
 import discord.gamesdk.DiscordCreateParams
-import discord.gamesdk.DiscordResult_Ok
 import discord.gamesdk.DiscordVersion
+import discord.gamesdk.EDiscordLogLevel
+import discord.gamesdk.EDiscordResult
 import discord.gamesdk.IDiscordAchievementEvents
 import discord.gamesdk.IDiscordActivityEvents
 import discord.gamesdk.IDiscordApplicationEventsVar
@@ -35,15 +38,23 @@ import discord.gamesdk.IDiscordUserEvents
 import discord.gamesdk.IDiscordVoiceEvents
 import kotlinx.cinterop.COpaquePointer
 import kotlinx.cinterop.CPointer
-import kotlinx.cinterop.CPointerVar
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.StableRef
+import kotlinx.cinterop.alloc
 import kotlinx.cinterop.allocPointerTo
-import kotlinx.cinterop.cValue
+import kotlinx.cinterop.asStableRef
+import kotlinx.cinterop.invoke
+import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.nativeHeap
 import kotlinx.cinterop.ptr
+import kotlinx.cinterop.staticCFunction
+import kotlinx.cinterop.toKString
+import kotlinx.cinterop.value
+import okio.Closeable
 
+@Suppress("MemberVisibilityCanBePrivate")
 @OptIn(ExperimentalForeignApi::class)
-fun Discord(
+class Discord(
     clientId: DiscordClientId,
     flags: UInt = DiscordCreateFlags_Default,
     discordVersion: DiscordVersion = DISCORD_VERSION,
@@ -72,40 +83,74 @@ fun Discord(
     voiceEvents: CPointer<IDiscordVoiceEvents>? = null,
     voiceVersion: DiscordVersion = DISCORD_VOICE_MANAGER_VERSION,
     achievementEvents: CPointer<IDiscordAchievementEvents>? = null,
-    achievementVersion: DiscordVersion = DISCORD_ACHIEVEMENT_MANAGER_VERSION,
-): CPointerVar<IDiscordCore> = nativeHeap.allocPointerTo<IDiscordCore>().apply {
-    val params = cValue<DiscordCreateParams> {
-        this.client_id = clientId
-        this.flags = flags.toULong()
-        this.events = events
-        this.event_data = eventData
-        this.application_events = applicationEvents
-        this.application_version = applicationVersion
-        this.user_events = userEvents
-        this.user_version = userVersion
-        this.image_events = imageEvents
-        this.image_version = imageVersion
-        this.activity_events = activityEvents
-        this.activity_version = activityVersion
-        this.relationship_events = relationshipEvents
-        this.relationship_version = relationshipVersion
-        this.lobby_events = lobbyEvents
-        this.lobby_version = lobbyVersion
-        this.network_events = networkEvents
-        this.network_version = networkVersion
-        this.overlay_events = overlayEvents
-        this.overlay_version = overlayVersion
-        this.storage_events = storageEvents
-        this.storage_version = storageVersion
-        this.store_events = storeEvents
-        this.store_version = storeVersion
-        this.voice_events = voiceEvents
-        this.voice_version = voiceVersion
-        this.achievement_events = achievementEvents
-        this.achievement_version = achievementVersion
+    achievementVersion: DiscordVersion = DISCORD_ACHIEVEMENT_MANAGER_VERSION
+) : NativePointerHolder<IDiscordCore>, Closeable {
+
+    override val nativePointer: CPointer<IDiscordCore>
+    private val stableSelfRef = StableRef.create(this)
+
+    val activityManager: ActivityManager by lazy {
+        use {
+            ActivityManager(get_activity_manager!!.invoke(ptr)!!)
+        }
     }
 
-    check(DiscordCreate(discordVersion, params, this.ptr) == DiscordResult_Ok) {
-        "Running Discord application not found!"
+    init {
+        val core = nativeHeap.allocPointerTo<IDiscordCore>()
+        memScoped {
+            val params = alloc<DiscordCreateParams>()
+            params.client_id = clientId
+            params.flags = flags.toULong()
+            params.events = events
+            params.event_data = eventData
+            params.application_events = applicationEvents
+            params.application_version = applicationVersion
+            params.user_events = userEvents
+            params.user_version = userVersion
+            params.image_events = imageEvents
+            params.image_version = imageVersion
+            params.activity_events = activityEvents
+            params.activity_version = activityVersion
+            params.relationship_events = relationshipEvents
+            params.relationship_version = relationshipVersion
+            params.lobby_events = lobbyEvents
+            params.lobby_version = lobbyVersion
+            params.network_events = networkEvents
+            params.network_version = networkVersion
+            params.overlay_events = overlayEvents
+            params.overlay_version = overlayVersion
+            params.storage_events = storageEvents
+            params.storage_version = storageVersion
+            params.store_events = storeEvents
+            params.store_version = storeVersion
+            params.voice_events = voiceEvents
+            params.voice_version = voiceVersion
+            params.achievement_events = achievementEvents
+            params.achievement_version = achievementVersion
+
+            check(DiscordCreate(discordVersion, params.ptr, core.ptr) == EDiscordResult.DiscordResult_Ok) {
+                "Running Discord application not found!"
+            }
+        }
+        nativePointer = core.value!!
+    }
+
+    override fun close() = destroy()
+
+    fun destroy(): Unit = use { destroy!!.invoke(ptr) }
+
+    fun runCallbacks(): EDiscordResult = use {
+        run_callbacks!!.invoke(ptr)
+    }
+
+    private var logHook: ((EDiscordLogLevel, String?) -> Unit)? = null
+    fun setLogHook(minLogLevel: EDiscordLogLevel, callback: ((EDiscordLogLevel, String?) -> Unit)?): Unit = use {
+        logHook = callback
+        set_log_hook!!.invoke(ptr, minLogLevel, stableSelfRef.asCPointer(), logHook?.run {
+            staticCFunction { selfPointer, logLevel: EDiscordLogLevel, message ->
+                val discord = selfPointer!!.asStableRef<Discord>().get()
+                discord.logHook?.invoke(logLevel, message?.toKString())
+            }
+        })
     }
 }

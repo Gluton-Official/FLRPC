@@ -1,3 +1,12 @@
 headers = discord_game_sdk.h
 
-#linkerOpts.mingw = -LS:/Documents/Code/Kotlin/FLRPC/discord_game_sdk/lib/x86_64 -ldiscord_game_sdk -v
+strictEnums = EDiscordResult \
+	EDiscordLogLevel \
+	EDiscordPremiumType \
+	EDiscordImageType \
+	EDiscordActivityPartyPrivacy \
+	EDiscordActivityType \
+	EDiscordActivityActionType \
+	EDiscordActivityJoinRequestReply \
+	EDiscordStatus \
+	EDiscordRelationshipType \
