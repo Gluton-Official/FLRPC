@@ -67,23 +67,39 @@ kotlin {
                         else -> emptyList()
                     } + "-v"
                 }
-
-                if (outputKind == NativeOutputKind.EXECUTABLE) {
-                    val buildType = buildType.name.lowercase().uppercaseFirstChar()
-                    val buildTargetName = this@nativeTarget.name.uppercaseFirstChar()
-                    val arch = konanTarget.architecture.asDiscordGameSDKArch()
-                    val libFileExtension = konanTarget.family.dynamicSuffix
-                    val includeLibs = tasks.register<Copy>("includeLibs$buildType$buildTargetName") {
-                        group = "includeLibs"
-                        from(project.file("libs/discord_game_sdk/lib/$arch/discord_game_sdk.$libFileExtension"))
-                        into(outputDirectory)
-                    }
-                    linkTask.finalizedBy(includeLibs)
-                }
             }
             executable {
                 baseName = "${project.name}-${project.version}"
                 entryPoint = "dev.gluton.flrpc.main"
+
+                val buildType = buildType.name.lowercase().uppercaseFirstChar()
+                val buildTargetName = this@nativeTarget.name.uppercaseFirstChar()
+                val arch = konanTarget.architecture.asDiscordGameSDKArch()
+                val libFileExtension = konanTarget.family.dynamicSuffix
+
+                val includeLibs = tasks.register<Copy>("includeLibs$buildType$buildTargetName") {
+                    group = "includeLibs"
+
+                    from(project.file("libs/discord_game_sdk/lib/$arch/discord_game_sdk.$libFileExtension"))
+                    into(outputDirectory)
+
+                    dependsOn(linkTask)
+                }
+                runTask?.dependsOn(includeLibs)
+
+                val archive = tasks.register<Zip>("archive$buildType$buildTargetName") {
+                    group = "archive"
+                    archiveAppendix = this@nativeTarget.name
+                    if (this@executable.buildType == NativeBuildType.DEBUG) {
+                        archiveClassifier = buildType.lowercase()
+                    }
+
+                    from(outputDirectory)
+                    include("*")
+                    destinationDirectory.set(buildDir.resolve("archives"))
+
+                    dependsOn(includeLibs)
+                }
             }
         }
     }
