@@ -2,6 +2,7 @@ import org.gradle.kotlin.dsl.support.uppercaseFirstChar
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType
+import org.jetbrains.kotlin.gradle.plugin.mpp.NativeOutputKind
 import org.jetbrains.kotlin.konan.target.Architecture
 import org.jetbrains.kotlin.konan.target.Family
 import org.jetbrains.kotlin.konan.target.HostManager
@@ -12,7 +13,7 @@ plugins {
 }
 
 group = "dev.gluton"
-version = "0.0.1"
+version = "0.1.0"
 
 repositories {
     mavenCentral()
@@ -56,7 +57,7 @@ kotlin {
         }
         binaries {
             all {
-                with(this@nativeTarget.konanTarget) {
+                with(konanTarget) {
                     val arch = architecture.asDiscordGameSDKArch()
                     linkerOpts += when (family) {
                         Family.MINGW -> listOf(
@@ -66,20 +67,23 @@ kotlin {
                         else -> emptyList()
                     } + "-v"
                 }
+
+                if (outputKind == NativeOutputKind.EXECUTABLE) {
+                    val buildType = buildType.name.lowercase().uppercaseFirstChar()
+                    val buildTargetName = this@nativeTarget.name.uppercaseFirstChar()
+                    val arch = konanTarget.architecture.asDiscordGameSDKArch()
+                    val libFileExtension = konanTarget.family.dynamicSuffix
+                    val includeLibs = tasks.register<Copy>("includeLibs$buildType$buildTargetName") {
+                        group = "includeLibs"
+                        from(project.file("libs/discord_game_sdk/lib/$arch/discord_game_sdk.$libFileExtension"))
+                        into(outputDirectory)
+                    }
+                    linkTask.finalizedBy(includeLibs)
+                }
             }
             executable {
+                baseName = "${project.name}-${project.version}"
                 entryPoint = "dev.gluton.flrpc.main"
-
-                val buildType = buildType.name.lowercase().uppercaseFirstChar()
-                val buildTargetName = this@nativeTarget.name.uppercaseFirstChar()
-                val arch = this@nativeTarget.konanTarget.architecture.asDiscordGameSDKArch()
-                val libFileExtension = this@nativeTarget.konanTarget.family.dynamicSuffix
-                val includeLibs = tasks.register<Copy>("includeLibs$buildType$buildTargetName") {
-                    group = "includeLibs"
-                    from(project.file("libs/discord_game_sdk/lib/$arch/discord_game_sdk.$libFileExtension"))
-                    into(outputDirectory)
-                }
-                runTask?.dependsOn(includeLibs)
             }
         }
     }
