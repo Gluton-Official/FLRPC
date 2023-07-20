@@ -2,7 +2,6 @@ import org.gradle.kotlin.dsl.support.uppercaseFirstChar
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType
-import org.jetbrains.kotlin.gradle.plugin.mpp.NativeOutputKind
 import org.jetbrains.kotlin.konan.target.Architecture
 import org.jetbrains.kotlin.konan.target.Family
 import org.jetbrains.kotlin.konan.target.HostManager
@@ -47,11 +46,10 @@ kotlin {
             }
             cinterops {
                 val discordSdk by creating {
-                    defFile(cInteropsDir.resolve("discord_game_sdk.def"))
+                    val dir = cInteropsDir.resolve("discord_game_sdk")
+                    defFile(dir.resolve("discord_game_sdk.def"))
                     packageName("discord.gamesdk")
-                    includeDirs {
-                        allHeaders(project.file("libs/discord_game_sdk/c/"))
-                    }
+                    includeDirs { allHeaders(dir) }
                 }
             }
         }
@@ -61,7 +59,7 @@ kotlin {
                     val arch = architecture.asDiscordGameSDKArch()
                     linkerOpts += when (family) {
                         Family.MINGW -> listOf(
-                            "-L$projectDir/libs/discord_game_sdk/lib/$arch",
+                            "-L$projectDir/libs/discord_game_sdk/$arch",
                             "-ldiscord_game_sdk",
                         )
                         else -> emptyList()
@@ -80,7 +78,7 @@ kotlin {
                 val includeLibs = tasks.register<Copy>("includeLibs$buildType$buildTargetName") {
                     group = "includeLibs"
 
-                    from(project.file("libs/discord_game_sdk/lib/$arch/discord_game_sdk.$libFileExtension"))
+                    from(project.file("libs/discord_game_sdk/$arch/discord_game_sdk.$libFileExtension"))
                     into(outputDirectory)
 
                     dependsOn(linkTask)

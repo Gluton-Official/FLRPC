@@ -16,6 +16,6 @@ gradle-app.setting
 
 # Ignore unneeded stuff from discord_game_sdk
 libs/discord_game_sdk/**
-!libs/discord_game_sdk/c/**
-!libs/discord_game_sdk/lib/**
-!libs/discord_game_sdk/README.md
+!libs/discord_game_sdk/aarch64
+!libs/discord_game_sdk/x86
+!libs/discord_game_sdk/x86_64
