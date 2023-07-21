@@ -85,16 +85,18 @@ kotlin {
                 }
                 runTask?.dependsOn(includeLibs)
 
-                val archive = tasks.register<Zip>("archive$buildType$buildTargetName") {
-                    group = "archive"
+                tasks.register<Zip>("package$buildType$buildTargetName") {
+                    group = "package"
+                    description = "Packages Kotlin/Native executable with libs for target ${this@nativeTarget.name}"
+
                     archiveAppendix = this@nativeTarget.name
-                    if (this@executable.buildType == NativeBuildType.DEBUG) {
+                    if (this@executable.buildType != NativeBuildType.RELEASE) {
                         archiveClassifier = buildType.lowercase()
                     }
 
                     from(outputDirectory)
                     include("*")
-                    destinationDirectory.set(buildDir.resolve("archives"))
+                    destinationDirectory.set(buildDir.resolve("packages"))
 
                     dependsOn(includeLibs)
                 }
@@ -134,12 +136,16 @@ kotlin {
 
 // generates runDebugExecutable and runReleaseExecutable tasks for current platform
 NativeBuildType.values().forEach {
-    val type = "${it.name.lowercase()}Executable"
-    val taskName = "run${type.uppercaseFirstChar()}"
-    tasks.register(taskName) {
+    val type = it.name.lowercase()
+    tasks.register("run${type.uppercaseFirstChar()}ExecutableCurrentOS") {
         group = "run"
-        description = "Executes Kotlin/Native executable $type for current platform target"
-        dependsOn("$taskName${platformTarget.uppercaseFirstChar()}")
+        description = "Executes Kotlin/Native executable ${type}Executable for current platform target"
+        dependsOn("$name${platformTarget.uppercaseFirstChar()}")
+    }
+    tasks.register("package${type.uppercaseFirstChar()}CurrentOS") {
+        group = "package"
+        description = "Packages Kotlin/Native executable with libs for for current platform target"
+        dependsOn("$name${platformTarget.uppercaseFirstChar()}")
     }
 }
 
