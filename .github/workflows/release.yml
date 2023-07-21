@@ -32,6 +32,7 @@ jobs:
 
     - uses: actions/upload-artifact@v3
       with:
+        name: artifact-${{ matrix.os }}
         if-no-files-found: error
         path: build/packages/*.zip
 
