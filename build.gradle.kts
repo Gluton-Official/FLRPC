@@ -6,6 +6,8 @@ import org.jetbrains.kotlin.konan.target.Architecture
 import org.jetbrains.kotlin.konan.target.Family
 import org.jetbrains.kotlin.konan.target.HostManager
 import org.jetbrains.kotlin.konan.target.presetName
+import java.io.ByteArrayOutputStream
+import kotlin.io.path.Path
 
 plugins {
     kotlin("multiplatform") version "1.9.0"
@@ -19,6 +21,16 @@ repositories {
 }
 
 val cInteropsDir: File = project.file("src/nativeInterop/cinterop/")
+val libGcc = ByteArrayOutputStream().use {
+    exec {
+        when {
+            HostManager.hostIsLinux -> commandLine("find /lib/gcc -mindepth 2 -maxdepth 2 -type d -print -quit")
+//            HostManager.hostIsMingw -> commandLine("echo", "\"S:\\Programs\\System\\Dev-Cpp\\MinGW64\\lib\\gcc\\x86_64-w64-mingw32\\4.9.2\"")
+        }
+        standardOutput = it
+    }
+    Path(it.toString().trimEnd())
+}
 
 @Suppress("UNUSED_VARIABLE")
 kotlin {
@@ -62,9 +74,14 @@ kotlin {
                     linkerOpts += "-v"
                 }
             }
+
             executable {
                 baseName = "${project.name}-${project.version}"
                 entryPoint = "dev.gluton.flrpc.main"
+
+                if (HostManager.hostIsLinux) {
+                    freeCompilerArgs += "-Xoverride-konan-properties=targetSysRoot.linux_x64=/;libGcc.linux_x64=$libGcc"
+                }
 
                 val buildType = buildType.name.lowercase().uppercaseFirstChar()
                 val buildTargetName = this@nativeTarget.name.uppercaseFirstChar()
