@@ -136,16 +136,20 @@ kotlin {
 
 // generates runDebugExecutable and runReleaseExecutable tasks for current platform
 NativeBuildType.values().forEach {
-    val type = it.name.lowercase()
-    tasks.register("run${type.uppercaseFirstChar()}ExecutableCurrentOS") {
+    val buildType = it.name.lowercase()
+
+    val runExecutableName = "run${buildType.uppercaseFirstChar()}Executable"
+    tasks.register("${runExecutableName}CurrentOS") {
         group = "run"
-        description = "Executes Kotlin/Native executable ${type}Executable for current platform target"
-        dependsOn("$name${platformTarget.uppercaseFirstChar()}")
+        description = "Executes Kotlin/Native executable ${buildType}Executable for current platform target"
+        dependsOn("$runExecutableName${platformTarget.uppercaseFirstChar()}")
     }
-    tasks.register("package${type.uppercaseFirstChar()}CurrentOS") {
+
+    val packageName = "package${buildType.uppercaseFirstChar()}"
+    tasks.register("${packageName}CurrentOS") {
         group = "package"
-        description = "Packages Kotlin/Native executable with libs for for current platform target"
-        dependsOn("$name${platformTarget.uppercaseFirstChar()}")
+        description = "Packages Kotlin/Native executable ${buildType}Executable with libs for for current platform target"
+        dependsOn("$packageName${platformTarget.uppercaseFirstChar()}")
     }
 }
 
