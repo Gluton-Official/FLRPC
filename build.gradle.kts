@@ -57,13 +57,10 @@ kotlin {
             all {
                 with(konanTarget) {
                     val arch = architecture.asDiscordGameSDKArch()
-                    linkerOpts += when (family) {
-                        Family.MINGW -> listOf(
-                            "-L$projectDir/libs/discord_game_sdk/$arch",
-                            "-ldiscord_game_sdk",
-                        )
-                        else -> emptyList()
-                    } + "-v"
+                    linkerOpts += "-L$projectDir/libs/discord_game_sdk/$arch"
+                    if (buildType == NativeBuildType.DEBUG) {
+                        linkerOpts += "-v"
+                    }
                 }
             }
             executable {
