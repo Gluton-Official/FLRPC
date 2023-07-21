@@ -49,18 +49,17 @@ kotlin {
                     val dir = cInteropsDir.resolve("discord_game_sdk")
                     defFile(dir.resolve("discord_game_sdk.def"))
                     packageName("discord.gamesdk")
-                    includeDirs { allHeaders(dir) }
+                    includeDirs.allHeaders(dir)
                 }
             }
         }
         binaries {
             all {
-                with(konanTarget) {
-                    val arch = architecture.asDiscordGameSDKArch()
-                    linkerOpts += "-L$projectDir/libs/discord_game_sdk/$arch"
-                    if (buildType == NativeBuildType.DEBUG) {
-                        linkerOpts += "-v"
-                    }
+                val arch = konanTarget.architecture.asDiscordGameSDKArch()
+                val libPrefix = konanTarget.family.dynamicPrefix
+                linkerOpts += listOf("-L$projectDir/libs/discord_game_sdk/$arch", "-ldiscord_game_sdk")
+                if (buildType == NativeBuildType.DEBUG) {
+                    linkerOpts += "-v"
                 }
             }
             executable {
@@ -71,11 +70,12 @@ kotlin {
                 val buildTargetName = this@nativeTarget.name.uppercaseFirstChar()
                 val arch = konanTarget.architecture.asDiscordGameSDKArch()
                 val libFileExtension = konanTarget.family.dynamicSuffix
+                val libFilePrefix = konanTarget.family.dynamicPrefix
 
                 val includeLibs = tasks.register<Copy>("includeLibs$buildType$buildTargetName") {
                     group = "includeLibs"
 
-                    from(project.file("libs/discord_game_sdk/$arch/discord_game_sdk.$libFileExtension"))
+                    from(project.file("libs/discord_game_sdk/$arch/${libFilePrefix}discord_game_sdk.$libFileExtension"))
                     into(outputDirectory)
 
                     dependsOn(linkTask)
@@ -86,9 +86,9 @@ kotlin {
                     group = "package"
                     description = "Packages Kotlin/Native executable with libs for target ${this@nativeTarget.name}"
 
-                    archiveAppendix = this@nativeTarget.name
+                    archiveAppendix.set(this@nativeTarget.name)
                     if (this@executable.buildType != NativeBuildType.RELEASE) {
-                        archiveClassifier = buildType.lowercase()
+                        archiveClassifier.set(buildType.lowercase())
                     }
 
                     from(outputDirectory)

@@ -1,7 +1,5 @@
 headers = discord_game_sdk.h
 
-linkerOpts = -ldiscord_game_sdk
-
 strictEnums = EDiscordResult \
 	EDiscordLogLevel \
 	EDiscordPremiumType \
