@@ -14,23 +14,23 @@ plugins {
 }
 
 group = "dev.gluton"
-version = "0.1.0"
+version = extra["flrpc.version"] as String
+val flstudioVersion = extra["flstudio.version"] as String
 
 repositories {
     mavenCentral()
 }
 
 val cInteropsDir: File = project.file("src/nativeInterop/cinterop/")
-val libGcc = ByteArrayOutputStream().use {
-    exec {
-        when {
-            HostManager.hostIsLinux -> commandLine("find /lib/gcc -mindepth 2 -maxdepth 2 -type d -print -quit")
-//            HostManager.hostIsMingw -> commandLine("echo", "\"S:\\Programs\\System\\Dev-Cpp\\MinGW64\\lib\\gcc\\x86_64-w64-mingw32\\4.9.2\"")
+val libGcc = if (HostManager.hostIsLinux) {
+    ByteArrayOutputStream().use {
+        exec {
+            commandLine("find", "/lib/gcc", "-mindepth", 2, "-maxdepth", 2, "-type", "d", "-print", "-quit")
+            standardOutput = it
         }
-        standardOutput = it
+        Path(it.toString().trimEnd()).also(::println)
     }
-    Path(it.toString().trimEnd())
-}
+} else ""
 
 @Suppress("UNUSED_VARIABLE")
 kotlin {
@@ -76,7 +76,6 @@ kotlin {
             }
 
             executable {
-                baseName = "${project.name}-${project.version}"
                 entryPoint = "dev.gluton.flrpc.main"
 
                 if (HostManager.hostIsLinux) {
@@ -103,10 +102,11 @@ kotlin {
                     group = "package"
                     description = "Packages Kotlin/Native executable with libs for target ${this@nativeTarget.name}"
 
-                    archiveAppendix.set(this@nativeTarget.name)
                     if (this@executable.buildType != NativeBuildType.RELEASE) {
-                        archiveClassifier.set(buildType.lowercase())
+                        archiveAppendix.set(buildType.lowercase())
                     }
+                    archiveVersion.set("${project.version}_$flstudioVersion")
+                    archiveClassifier.set(this@nativeTarget.konanTarget.name)
 
                     from(outputDirectory)
                     include("*")
