@@ -6,8 +6,6 @@ import org.jetbrains.kotlin.konan.target.Architecture
 import org.jetbrains.kotlin.konan.target.Family
 import org.jetbrains.kotlin.konan.target.HostManager
 import org.jetbrains.kotlin.konan.target.presetName
-import java.io.ByteArrayOutputStream
-import kotlin.io.path.Path
 
 plugins {
     kotlin("multiplatform") version "1.9.0"
@@ -22,15 +20,6 @@ repositories {
 }
 
 val cInteropsDir: File = project.file("src/nativeInterop/cinterop/")
-val libGcc = if (HostManager.hostIsLinux) {
-    ByteArrayOutputStream().use {
-        exec {
-            commandLine("find", "/lib/gcc", "-mindepth", 2, "-maxdepth", 2, "-type", "d", "-print", "-quit")
-            standardOutput = it
-        }
-        Path(it.toString().trimEnd()).also(::println)
-    }
-} else ""
 
 @Suppress("UNUSED_VARIABLE")
 kotlin {
@@ -44,10 +33,10 @@ kotlin {
             }
         }
     }
-    linuxX64("linux")
+//    linuxX64("linux") // Konan glibc 2.19 is too old
 //    linuxArm64() // not supported by okio (https://github.com/square/okio/issues/1171), nor discord game sdk?
-    macosX64()
-    macosArm64()
+//    macosX64() // Konan glibc 2.19 is also too old mabye?
+//    macosArm64() // Untestable / can't build
 
     targets.withType<KotlinNativeTarget> nativeTarget@{
         compilations.all {
@@ -77,10 +66,6 @@ kotlin {
 
             executable {
                 entryPoint = "dev.gluton.flrpc.main"
-
-                if (HostManager.hostIsLinux) {
-                    freeCompilerArgs += "-Xoverride-konan-properties=targetSysRoot.linux_x64=/;libGcc.linux_x64=$libGcc"
-                }
 
                 val buildType = buildType.name.lowercase().uppercaseFirstChar()
                 val buildTargetName = this@nativeTarget.name.uppercaseFirstChar()
@@ -137,14 +122,6 @@ kotlin {
         val commonTest by getting
         val windowsMain by getting
         val windowsTest by getting
-        val linuxMain by getting
-        val linuxTest by getting
-        val macosMain by creating { dependsOn(commonMain) }
-        val macosTest by creating { dependsOn(commonTest) }
-        val macosX64Main by getting { dependsOn(macosMain) }
-        val macosX64Test by getting { dependsOn(macosTest) }
-        val macosArm64Main by getting { dependsOn(macosMain) }
-        val macosArm64Test by getting { dependsOn(macosTest) }
     }
 }
 
