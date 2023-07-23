@@ -20,6 +20,7 @@ repositories {
 }
 
 val cInteropsDir: File = project.file("src/nativeInterop/cinterop/")
+val libsDir: File = project.file("libs/")
 
 @Suppress("UNUSED_VARIABLE")
 kotlin {
@@ -46,11 +47,10 @@ kotlin {
                 )
             }
             cinterops {
-                val discordSdk by creating {
-                    val dir = cInteropsDir.resolve("discord_game_sdk")
-                    defFile(dir.resolve("discord_game_sdk.def"))
+                val discordGameSdk by creating {
+                    defFile(cInteropsDir.resolve("discord_game_sdk.def"))
                     packageName("discord.gamesdk")
-                    includeDirs.allHeaders(dir)
+                    includeDirs.allHeaders(libsDir.resolve("discord_game_sdk/"))
                 }
             }
         }
