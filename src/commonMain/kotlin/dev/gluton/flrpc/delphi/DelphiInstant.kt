@@ -24,7 +24,7 @@ value class DelphiInstant private constructor(val days: Double) {
         fun fromEpochDays(days: Double, sourceTimeZone: TimeZone = TimeZone.UTC): DelphiInstant {
             val delphiInstant = DelphiInstant(days)
             return when {
-                sourceTimeZone == TimeZone.UTC -> delphiInstant
+                sourceTimeZone != TimeZone.UTC -> delphiInstant
                     .toUnixInstant()
                     .toLocalDateTime(TimeZone.UTC)
                     .toInstant(sourceTimeZone)
