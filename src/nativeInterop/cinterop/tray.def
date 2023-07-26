@@ -1,0 +1,3 @@
+headers = tray.h
+package = dmikushin.tray
+staticLibraries = libtray.a
