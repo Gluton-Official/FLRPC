@@ -17,9 +17,9 @@ import discord.gamesdk.DISCORD_VERSION
 import discord.gamesdk.DISCORD_VOICE_MANAGER_VERSION
 import discord.gamesdk.DiscordClientId
 import discord.gamesdk.DiscordCreate
-import discord.gamesdk.DiscordCreateFlags_Default
 import discord.gamesdk.DiscordCreateParams
 import discord.gamesdk.DiscordVersion
+import discord.gamesdk.EDiscordCreateFlags
 import discord.gamesdk.EDiscordLogLevel
 import discord.gamesdk.EDiscordResult
 import discord.gamesdk.IDiscordAchievementEvents
@@ -56,7 +56,7 @@ import okio.Closeable
 @OptIn(ExperimentalForeignApi::class)
 class Discord(
     clientId: DiscordClientId,
-    flags: UInt = DiscordCreateFlags_Default,
+    flags: EDiscordCreateFlags = EDiscordCreateFlags.DiscordCreateFlags_Default,
     discordVersion: DiscordVersion = DISCORD_VERSION,
     events: CPointer<IDiscordCoreEventsVar>? = null,
     eventData: COpaquePointer? = null,
@@ -100,7 +100,7 @@ class Discord(
         memScoped {
             val params = alloc<DiscordCreateParams>()
             params.client_id = clientId
-            params.flags = flags.toULong()
+            params.flags = flags.value.toULong()
             params.events = events
             params.event_data = eventData
             params.application_events = applicationEvents

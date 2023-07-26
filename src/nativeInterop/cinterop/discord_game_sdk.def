@@ -1,6 +1,9 @@
 headers = discord_game_sdk.h
+package = discord.gamesdk
 
-strictEnums = EDiscordResult \
+strictEnums = \
+	EDiscordCreateFlags \
+	EDiscordResult \
 	EDiscordLogLevel \
 	EDiscordPremiumType \
 	EDiscordImageType \

@@ -20,7 +20,7 @@ repositories {
 }
 
 val cInteropsDir: File = project.file("src/nativeInterop/cinterop/")
-val libsDir: File = project.file("libs/")
+val libsDir: File = project.file("src/nativeInterop/libs/")
 
 @Suppress("UNUSED_VARIABLE")
 kotlin {
@@ -46,21 +46,27 @@ kotlin {
                     "-Xcontext-receivers",
                 )
             }
+
             cinterops {
                 val discordGameSdk by creating {
-                    defFile(cInteropsDir.resolve("discord_game_sdk.def"))
-                    packageName("discord.gamesdk")
-                    includeDirs.allHeaders(libsDir.resolve("discord_game_sdk/"))
+                    val name = "discord_game_sdk"
+                    defFile(cInteropsDir.resolve("$name.def"))
+                    includeDirs.allHeaders(libsDir.resolve(name))
+                }
+                val tray by creating {
+                    val trayLibDir = libsDir.resolve("tray")
+                    includeDirs.allHeaders(trayLibDir)
+                    extraOpts("-libraryPath", trayLibDir)
                 }
             }
         }
         binaries {
             all {
-                val arch = konanTarget.architecture.asDiscordGameSDKArch()
-                val libPrefix = konanTarget.family.dynamicPrefix
-                linkerOpts += listOf("-L$projectDir/libs/discord_game_sdk/$arch", "-ldiscord_game_sdk")
-                if (buildType == NativeBuildType.DEBUG) {
-                    linkerOpts += "-v"
+                linkerOpts += listOf(
+                    "-L$libsDir/discord_game_sdk", "-ldiscord_game_sdk",
+                )
+                if (buildType != NativeBuildType.DEBUG) {
+                    linkerOpts += "-mwindows"
                 }
             }
 
@@ -69,19 +75,30 @@ kotlin {
 
                 val buildType = buildType.name.lowercase().uppercaseFirstChar()
                 val buildTargetName = this@nativeTarget.name.uppercaseFirstChar()
-                val arch = konanTarget.architecture.asDiscordGameSDKArch()
-                val libFileExtension = konanTarget.family.dynamicSuffix
-                val libFilePrefix = konanTarget.family.dynamicPrefix
 
                 val includeLibs = tasks.register<Copy>("includeLibs$buildType$buildTargetName") {
                     group = "includeLibs"
 
-                    from(project.file("libs/discord_game_sdk/$arch/${libFilePrefix}discord_game_sdk.$libFileExtension"))
+                    from(libsDir.resolve("discord_game_sdk/discord_game_sdk.dll"))
                     into(outputDirectory)
 
                     dependsOn(linkTask)
                 }
                 runTask?.dependsOn(includeLibs)
+
+                val includeResources = tasks.register<Copy>("includeResources$buildType$buildTargetName") {
+                    group = "includeResources"
+
+                    from(sourceSets.commonMain.get().resources)
+                    from(sourceSets.asMap
+                        .filterKeys { it.startsWith(buildTargetName, ignoreCase = true) && it.endsWith("main", ignoreCase = true) }
+                        .flatMap { it.value.resources }
+                    )
+                    into(outputDirectory)
+
+                    dependsOn(linkTask)
+                }
+                runTask?.dependsOn(includeResources)
 
                 tasks.register<Zip>("package$buildType$buildTargetName") {
                     group = "package"
@@ -95,6 +112,7 @@ kotlin {
 
                     from(outputDirectory)
                     include("*")
+                    into(project.name)
                     destinationDirectory.set(buildDir.resolve("packages"))
 
                     dependsOn(includeLibs)
