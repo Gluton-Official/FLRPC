@@ -17,6 +17,7 @@ import platform.posix.errno
 import platform.posix.freopen
 import platform.posix.getenv
 import platform.posix.stdout
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import dmikushin.tray.tray_exit as trayExit
 import dmikushin.tray.tray_init as trayInit
@@ -84,6 +85,8 @@ fun main() {
                 }
 
                 discord.runCallbacks()
+
+                delay(100.milliseconds)
             }
         }
     }
