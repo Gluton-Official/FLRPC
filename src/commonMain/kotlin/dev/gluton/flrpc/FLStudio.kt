@@ -10,7 +10,7 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
 class FLStudio private constructor(windowHandle: WindowHandle) : Application(windowHandle) {
-    val name: String get() = windowTitle?.substringAfterLast('-')?.trim()?.takeIf(String::isNotEmpty) ?: "FL Studio"
+    val name: String = windowTitle?.substringAfterLast('-')?.trim()?.takeIf(String::isNotEmpty) ?: "FL Studio"
 
     fun <T> useEngine(block: FLEngine.() -> T): Result<T> =
         when (val processHandle = openProcess(processId, ProcessFlags.ReadMemory)) {
@@ -68,15 +68,15 @@ class FLStudio private constructor(windowHandle: WindowHandle) : Application(win
         fun attach(): FLStudio? = WindowHandle.fromExecutableName(executableName)?.let(::FLStudio)
 
         val FLEngine.formattedTimeSpent: String
-            get() {
-                val timeSpent = timeSpent
-                val minutes = timeSpent.inWholeMinutes
-                val hours = timeSpent.inWholeHours
-                return when {
+            get() = timeSpent.toComponents { hours, minutes, _, _ ->
+                when {
                     minutes < 1 -> "less than a minute"
-                    minutes == 1L -> "1 minute"
+                    minutes == 1 -> "1 minute"
                     hours < 2 -> "$minutes minutes"
-                    else -> "$hours hours"
+                    else -> {
+                        val minutesDecimal = (minutes / 6).takeUnlessZero()?.let { ".$it" } ?: ""
+                        "$hours$minutesDecimal hours"
+                    }
                 }
             }
     }
