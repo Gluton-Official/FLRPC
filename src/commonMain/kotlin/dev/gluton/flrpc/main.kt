@@ -3,20 +3,13 @@ package dev.gluton.flrpc
 import dev.gluton.flrpc.FLStudio.Companion.formattedTimeSpent
 import dev.gluton.flrpc.discord.Discord
 import discord.gamesdk.EDiscordLogLevel
+import korlibs.logger.Logger
 import kotlinx.cinterop.ptr
-import kotlinx.cinterop.toKString
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import okio.use
-import platform.posix.STDERR_FILENO
-import platform.posix.STDOUT_FILENO
-import platform.posix.dup2
-import platform.posix.errno
-import platform.posix.freopen
-import platform.posix.getenv
-import platform.posix.stdout
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import dmikushin.tray.tray_exit as trayExit
@@ -25,28 +18,22 @@ import dmikushin.tray.tray_loop as trayLoop
 
 const val APP_ID = 1119828627786322010
 
-fun main() {
-    if (getenv("LOG_FLRPC_OUTPUT")?.toKString()?.lowercase() != "console") {
-        val logFilePath = EXE_PATH.parent?.resolve("FLRPC.log").toString()
-        freopen(logFilePath, "w", stdout) ?: FLRpcLogger.error { "Failed reopening to stdout: $errno" }
-        dup2(STDOUT_FILENO, STDERR_FILENO).takeUnless { it == -1 } ?: FLRpcLogger.error { "Failed duplicating stdout to stderr: $errno" }
-        FLRpcLogger.debug { "Redirected output to log file: $logFilePath" }
-    }
-
+fun main() = try {
     trayInit(tray.ptr)
     FLRpcLogger.trace { "Initialized tray menu" }
 
     Discord(APP_ID).use discord@{ discord ->
         FLRpcLogger.trace { "Connected to Discord RPC" }
         discord.setLogHook(EDiscordLogLevel.DiscordLogLevel_Debug) { logLevel, message ->
-            println("Discord/$logLevel: $message")
+            DiscordLogger.log(Logger.Level.get(logLevel.name.substringAfter('_'))) { message }
         }
 
         val flStudio = FLStudio.attach() ?: run retry@{
-            println("FL Studio is not running yet, waiting 5 seconds...")
+            FLRpcLogger.info { "FL Studio is not running yet, waiting 5 seconds..." }
             runBlocking { delay(5.seconds) }
+
             FLStudio.attach() ?: run failed@{
-                println("FL Studio still not running! Exiting...")
+                FLRpcLogger.info { "FL Studio still not running! Exiting..." }
                 return@discord
             }
         }
@@ -62,7 +49,14 @@ fun main() {
                     isInstance = false,
                 )
             }.onFailure { throwable ->
-                error("Failed to use engine${throwable.message?.let { ": $it" } ?: ""}")
+                FLRpcLogger.error {
+                    buildString {
+                        append("Failed to use engine")
+                        throwable.message?.let { append(": ", it) }
+                        appendLine()
+                        append(throwable.stackTraceToString())
+                    }
+                }
             }
             FLRpcLogger.trace { "Updated RPC" }
         }
@@ -93,4 +87,7 @@ fun main() {
 
     trayExit()
     FLRpcLogger.trace { "Closing" }
+} catch (e: Throwable) {
+    FLRpcLogger.error(e::stackTraceToString)
+    throw e
 }
