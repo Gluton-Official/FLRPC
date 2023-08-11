@@ -22,7 +22,7 @@ repositories {
 
 val cInteropsDir: File = project.file("src/nativeInterop/cinterop/")
 val libsDir: File = project.file("src/nativeInterop/libs/")
-val konanDir: File = System.getenv("KONAN_DATA_DIR")?.let(::File) ?: File(System.getProperty("user.home")).resolve(".konan")
+
 val rcFile: File = project.file("${project.name}.rc")
 val resFile: File = buildDir.resolve("konan/res/${project.name}.res")
 
