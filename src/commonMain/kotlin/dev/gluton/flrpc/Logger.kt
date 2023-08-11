@@ -22,7 +22,9 @@ import okio.use
 import platform.posix.getenv
 import kotlin.time.Duration.Companion.nanoseconds
 
-private val logFilePath = EXE_PATH.parent?.resolve("FLRPC.log")
+private val logFilePath = EXE_PATH.parent?.resolve("FLRPC.log")?.also {
+    FileSystem.SYSTEM.delete(it, mustExist = false)
+}
 
 val FLRpcLogger = Logger("FLRPC").apply {
     val minLevel = getenv("LOG_FLRPC")?.toKString()?.let(Logger.Level::get) ?: Logger.Level.INFO
