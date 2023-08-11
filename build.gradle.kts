@@ -130,7 +130,7 @@ val generateWindowsResourceFile by tasks.registering {
                 BLOCK "040904E4"
                 BEGIN
                   VALUE "CompanyName", "Gluton"
-                  VALUE "FileDescription", "FL Studio Discord RPC"
+                  VALUE "FileDescription", "FLRPC"
                   VALUE "FileVersion", "$version"
                   VALUE "InternalName", "${project.name}"
                   VALUE "OriginalFilename", "${project.name}.exe"
