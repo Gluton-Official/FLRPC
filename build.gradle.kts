@@ -1,5 +1,7 @@
 import org.gradle.kotlin.dsl.support.uppercaseFirstChar
+import org.jetbrains.kotlin.builtins.StandardNames.FqNames.target
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
+import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType
 import org.jetbrains.kotlin.konan.target.Architecture
@@ -13,7 +15,7 @@ plugins {
 
 group = "dev.gluton"
 version = extra["flrpc.version"] as String
-val flstudioVersion = extra["flstudio.version"] as String
+val flStudioVersion = extra["flStudio.version"] as String
 
 repositories {
     mavenCentral()
@@ -22,7 +24,8 @@ repositories {
 val cInteropsDir: File = project.file("src/nativeInterop/cinterop/")
 val libsDir: File = project.file("src/nativeInterop/libs/")
 
-@Suppress("UNUSED_VARIABLE")
+val dynLibs = listOf(libsDir.resolve("discord_game_sdk/discord_game_sdk.dll"))
+
 kotlin {
     mingwX64("windows") windows@{
         compilations.all {
@@ -34,9 +37,9 @@ kotlin {
             }
         }
     }
-//    linuxX64("linux") // Konan glibc 2.19 is too old
+//    linuxX64("linux") // Konan glibc 2.19 is too old for discord sdk
 //    linuxArm64() // not supported by okio (https://github.com/square/okio/issues/1171), nor discord game sdk?
-//    macosX64() // Konan glibc 2.19 is also too old mabye?
+//    macosX64() // Konan glibc 2.19 is also too old maybe?
 //    macosArm64() // Untestable / can't build
 
     targets.withType<KotlinNativeTarget> nativeTarget@{
@@ -72,51 +75,6 @@ kotlin {
 
             executable {
                 entryPoint = "dev.gluton.flrpc.main"
-
-                val buildType = buildType.name.lowercase().uppercaseFirstChar()
-                val buildTargetName = this@nativeTarget.name.uppercaseFirstChar()
-
-                val includeLibs = tasks.register<Copy>("includeLibs$buildType$buildTargetName") {
-                    group = "includeLibs"
-
-                    from(libsDir.resolve("discord_game_sdk/discord_game_sdk.dll"))
-                    into(outputDirectory)
-
-                    dependsOn(linkTask)
-                }
-                runTask?.dependsOn(includeLibs)
-
-                val includeResources = tasks.register<Copy>("includeResources$buildType$buildTargetName") {
-                    group = "includeResources"
-
-                    from(sourceSets.commonMain.get().resources)
-                    from(sourceSets.asMap
-                        .filterKeys { it.startsWith(buildTargetName, ignoreCase = true) && it.endsWith("main", ignoreCase = true) }
-                        .flatMap { it.value.resources }
-                    )
-                    into(outputDirectory)
-
-                    dependsOn(linkTask)
-                }
-                runTask?.dependsOn(includeResources)
-
-                tasks.register<Zip>("package$buildType$buildTargetName") {
-                    group = "package"
-                    description = "Packages Kotlin/Native executable with libs for target ${this@nativeTarget.name}"
-
-                    if (this@executable.buildType != NativeBuildType.RELEASE) {
-                        archiveAppendix.set(buildType.lowercase())
-                    }
-                    archiveVersion.set("${project.version}_$flstudioVersion")
-                    archiveClassifier.set(this@nativeTarget.konanTarget.name)
-
-                    from(outputDirectory)
-                    include("*")
-                    into(project.name)
-                    destinationDirectory.set(buildDir.resolve("packages"))
-
-                    dependsOn(includeLibs)
-                }
             }
         }
     }
@@ -143,35 +101,56 @@ kotlin {
     }
 }
 
-// generates runDebugExecutable and runReleaseExecutable tasks for current platform
-NativeBuildType.values().forEach {
-    val buildType = it.name.lowercase()
+kotlin.targets.withType<KotlinNativeTarget>()
+    .flatMap { NativeBuildType.values().map(it.binaries::getExecutable) }
+    .forEach { executable -> with(executable) {
+        val resources = run {
+            fun KotlinSourceSet.getAllParents(): List<KotlinSourceSet> =
+                listOf(this) + dependsOn.flatMap { it.getAllParents() }.toMutableList()
+            kotlin.sourceSets["${target.name}Main"]!!.getAllParents().flatMap { it.resources }
+        }
 
-    val runExecutableName = "run${buildType.uppercaseFirstChar()}Executable"
-    tasks.register("${runExecutableName}CurrentOS") {
-        group = "run"
-        description = "Executes Kotlin/Native executable ${buildType}Executable for current platform target"
-        dependsOn("$runExecutableName${platformTarget.uppercaseFirstChar()}")
-    }
+        runTask?.doFirst {
+            // include dynamic libraries and resources in runtime directory
+            copy {
+                from(dynLibs, resources)
+                into(outputDirectory)
+            }
+        }
 
-    val packageName = "package${buildType.uppercaseFirstChar()}"
-    tasks.register("${packageName}CurrentOS") {
-        group = "package"
-        description = "Packages Kotlin/Native executable ${buildType}Executable with libs for for current platform target"
-        dependsOn("$packageName${platformTarget.uppercaseFirstChar()}")
-    }
-}
+        val buildTypeName = buildType.name.lowercase()
+        val capitalizedBuildTypeName = buildTypeName.uppercaseFirstChar()
+        val capitalizedTargetName = target.name.uppercaseFirstChar()
+        val packageTask = tasks.register<Zip>("package$capitalizedBuildTypeName$capitalizedTargetName") {
+            group = "package"
+            description = "Packages Kotlin/Native executable with libs for target '${target.name}'"
 
-val platformTarget: String = with(HostManager.host) {
-    when (family) {
-        Family.OSX -> presetName
-        else -> HostManager.simpleOsName()
-    }
-}
+            if (buildType != NativeBuildType.RELEASE) {
+                archiveAppendix.set(buildTypeName)
+            }
+            archiveVersion.set("${project.version}_$flStudioVersion")
+            archiveClassifier.set(target.konanTarget.name)
 
-fun Architecture.asDiscordGameSDKArch(): String = when (this) {
-    Architecture.X64 -> "x86_64"
-    Architecture.X86 -> "x86"
-    Architecture.ARM64 -> "aarch64"
-    else -> error("Discord Game SDK doesn't support $this")
-}
+            from(outputDirectory.resolve("FLRPC.${target.konanTarget.family.exeSuffix}"), dynLibs, resources)
+            into(project.name)
+            destinationDirectory.set(buildDir.resolve("packages"))
+
+            dependsOn(linkTask)
+        }
+
+        if (target.konanTarget == HostManager.host) {
+            if (runTask != null) {
+                tasks.register("run${capitalizedBuildTypeName}ExecutableCurrentOS") {
+                    group = "run"
+                    description = "Executes Kotlin/Native executable ${buildTypeName}Executable for current platform target ('${target.name}')"
+                    dependsOn(runTask)
+                }
+            }
+
+            tasks.register("package${capitalizedBuildTypeName}CurrentOS") {
+                group = "package"
+                description = "Packages Kotlin/Native executable ${buildTypeName}Executable with libs for for current platform target ('${target.name}')"
+                dependsOn(packageTask)
+            }
+        }
+    }}
