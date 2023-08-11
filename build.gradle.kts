@@ -7,9 +7,6 @@ import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType
 import org.jetbrains.kotlin.konan.target.Family
 import org.jetbrains.kotlin.konan.target.HostManager
-import java.io.IOException
-import java.nio.file.Files
-import java.nio.file.attribute.BasicFileAttributes
 
 plugins {
     kotlin("multiplatform") version "1.9.0"
@@ -151,23 +148,7 @@ val generateWindowsResourceFile by tasks.registering {
 }
 
 val compileWindowsResourceFile by tasks.registering(Exec::class) {
-    println("KonanDir: $konanDir")
-    println("Konan dependencies: ${konanDir.resolve("dependencies").list().contentToString()}")
-    val windresExe = konanDir.resolve("dependencies").listFiles { file: File ->
-        file.name.startsWith("msys2-mingw-w64-x86_64")
-    }.run {
-        try {
-            sortedByDescending {
-                Files.readAttributes(it.toPath(), BasicFileAttributes::class.java).lastModifiedTime()
-            }.first()
-        } catch (e: IOException) {
-            first()
-        }
-    }.resolve("bin/windres.exe")
-    println("windresExe: $windresExe")
-
-    commandLine(windresExe, rcFile, "-O", "coff", "-o", resFile)
-    environment("PATH", "${windresExe.parent};${System.getenv("PATH")}")
+    commandLine("windres", rcFile, "-O", "coff", "-o", resFile)
 
     inputs.file(rcFile)
     outputs.file(resFile)
