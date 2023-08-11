@@ -23,6 +23,8 @@ with the project file name and time spent working displayed beneath.
 
 ![image](https://github.com/Gluton-Official/FLRPC/assets/66543311/e2eee109-4901-4874-a7a6-497c8482cba2)
 
+> If you have manually added FL Studio to your registered games in Discord's Activity Settings, you may have to remove it for FLRPC to display rich presence information.
+
 > You can also run FLRPC manually through FL Studio under Tools > FLRPC, or by running the exe directly.
 > 
 > To close FLRPC manually, click the FLRPC icon in your system tray and select Quit.
