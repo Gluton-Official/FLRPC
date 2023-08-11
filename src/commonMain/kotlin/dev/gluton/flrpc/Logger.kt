@@ -1,7 +1,6 @@
 package dev.gluton.flrpc
 
 import korlibs.logger.AnsiEscape
-import korlibs.logger.AnsiEscape.Companion.appendFgColor
 import korlibs.logger.AnsiEscape.Companion.blue
 import korlibs.logger.AnsiEscape.Companion.color
 import korlibs.logger.AnsiEscape.Companion.red
@@ -14,7 +13,7 @@ import kotlinx.datetime.Clock
 import kotlinx.datetime.LocalTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import okio.FileHandle
+import okio.BufferedSink
 import okio.FileSystem
 import okio.Path
 import okio.buffer
@@ -70,16 +69,15 @@ private fun writeToConsole(logger: Logger, level: Logger.Level, time: LocalTime,
 private fun writeToFile(path: Path, logger: Logger, level: Logger.Level, time: LocalTime, message: String) {
     val formattedMessage = formatLogMessage(logger, level, time, message)
     with(FileSystem.SYSTEM) {
+        fun writeMessage(sink: BufferedSink) = sink.apply {
+            writeUtf8(formattedMessage)
+            writeUtf8("\n")
+        }
+
         if (exists(path)) {
-            appendingSink(path, mustExist = true).buffer().use {
-                it.writeUtf8(formattedMessage)
-                it.writeUtf8("\n")
-            }
+            appendingSink(path, mustExist = true).buffer().use(::writeMessage)
         } else {
-            write(path, mustCreate = true) {
-                writeUtf8(formattedMessage)
-                writeUtf8("\n")
-            }
+            write(path, mustCreate = true, ::writeMessage)
         }
     }
 }
