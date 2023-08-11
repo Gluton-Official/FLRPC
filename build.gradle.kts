@@ -1,3 +1,5 @@
+@file:Suppress("KotlinRedundantDiagnosticSuppress")
+
 import org.gradle.kotlin.dsl.support.uppercaseFirstChar
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
@@ -29,6 +31,7 @@ val resFile: File = buildDir.resolve("konan/res/${project.name}.res")
 
 val dynLibs: List<File> = listOf(libsDir.resolve("discord_game_sdk/discord_game_sdk.dll"))
 
+@Suppress("Unused_variable")
 kotlin {
     mingwX64("windows") windows@{
         compilations.all {
@@ -148,6 +151,8 @@ val generateWindowsResourceFile by tasks.registering {
 }
 
 val compileWindowsResourceFile by tasks.registering(Exec::class) {
+    println("KonanDir: $konanDir")
+    println("Konan dependencies: ${konanDir.resolve("dependencies").list().contentToString()}")
     val windresExe = konanDir.resolve("dependencies").listFiles { file: File ->
         file.name.startsWith("msys2-mingw-w64-x86_64")
     }.run {
@@ -159,6 +164,7 @@ val compileWindowsResourceFile by tasks.registering(Exec::class) {
             first()
         }
     }.resolve("bin/windres.exe")
+    println("windresExe: $windresExe")
 
     commandLine(windresExe, rcFile, "-O", "coff", "-o", resFile)
     environment("PATH", "${windresExe.parent};${System.getenv("PATH")}")
