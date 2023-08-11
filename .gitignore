@@ -16,3 +16,6 @@ gradle-app.setting
 
 # ignore lib repos
 libs/
+
+# ignore Windows Resource files
+*.rc

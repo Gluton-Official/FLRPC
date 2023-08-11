@@ -1,13 +1,13 @@
 import org.gradle.kotlin.dsl.support.uppercaseFirstChar
-import org.jetbrains.kotlin.builtins.StandardNames.FqNames.target
 import org.jetbrains.kotlin.gradle.dsl.KotlinVersion
 import org.jetbrains.kotlin.gradle.plugin.KotlinSourceSet
 import org.jetbrains.kotlin.gradle.plugin.mpp.KotlinNativeTarget
 import org.jetbrains.kotlin.gradle.plugin.mpp.NativeBuildType
-import org.jetbrains.kotlin.konan.target.Architecture
 import org.jetbrains.kotlin.konan.target.Family
 import org.jetbrains.kotlin.konan.target.HostManager
-import org.jetbrains.kotlin.konan.target.presetName
+import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.attribute.BasicFileAttributes
 
 plugins {
     kotlin("multiplatform") version "1.9.0"
@@ -23,8 +23,11 @@ repositories {
 
 val cInteropsDir: File = project.file("src/nativeInterop/cinterop/")
 val libsDir: File = project.file("src/nativeInterop/libs/")
+val konanDir: File = System.getenv("KONAN_DATA_DIR")?.let(::File) ?: File(System.getProperty("user.home")).resolve(".konan")
+val rcFile: File = project.file("${project.name}.rc")
+val resFile: File = buildDir.resolve("konan/res/${project.name}.res")
 
-val dynLibs = listOf(libsDir.resolve("discord_game_sdk/discord_game_sdk.dll"))
+val dynLibs: List<File> = listOf(libsDir.resolve("discord_game_sdk/discord_game_sdk.dll"))
 
 kotlin {
     mingwX64("windows") windows@{
@@ -71,6 +74,9 @@ kotlin {
                 if (buildType != NativeBuildType.DEBUG) {
                     linkerOpts += "-mwindows"
                 }
+                if (target.konanTarget.family == Family.MINGW) {
+                    linkerOpts += resFile.toString()
+                }
             }
 
             executable {
@@ -101,6 +107,68 @@ kotlin {
     }
 }
 
+val generateWindowsResourceFile by tasks.registering {
+    doLast {
+        val fileVersion = (version.toString().split('.') + "0").joinToString(",")
+        val productVersion = listOf(
+            version.toString().split('.'),
+            flStudioVersion.split('.').take(3)
+        ).map { versionDigits ->
+            versionDigits.joinToString("") {
+                it.padEnd(2, '0')
+            }.toInt()
+        }.flatMap {
+            listOf(it shr 16, it shl 16 ushr 16)
+        }.joinToString(",")
+        rcFile.writeText("""
+            1 VERSIONINFO
+            FILEVERSION     $fileVersion
+            PRODUCTVERSION  $productVersion
+            BEGIN
+              BLOCK "StringFileInfo"
+              BEGIN
+                BLOCK "040904E4"
+                BEGIN
+                  VALUE "CompanyName", "Gluton"
+                  VALUE "FileDescription", "FL Studio Discord RPC"
+                  VALUE "FileVersion", "$version"
+                  VALUE "InternalName", "${project.name}"
+                  VALUE "OriginalFilename", "${project.name}.exe"
+                  VALUE "ProductName", "FLRPC for Windows"
+                  VALUE "ProductVersion", "${version}-$flStudioVersion"
+                END
+              END
+              BLOCK "VarFileInfo"
+              BEGIN
+                VALUE "Translation", 0x409, 1252
+              END
+            END
+        """.trimIndent())
+    }
+}
+
+val compileWindowsResourceFile by tasks.registering(Exec::class) {
+    val windresExe = konanDir.resolve("dependencies").listFiles { file: File ->
+        file.name.startsWith("msys2-mingw-w64-x86_64")
+    }.run {
+        try {
+            sortedByDescending {
+                Files.readAttributes(it.toPath(), BasicFileAttributes::class.java).lastModifiedTime()
+            }.first()
+        } catch (e: IOException) {
+            first()
+        }
+    }.resolve("bin/windres.exe")
+
+    commandLine(windresExe, rcFile, "-O", "coff", "-o", resFile)
+    environment("PATH", "${windresExe.parent};${System.getenv("PATH")}")
+
+    inputs.file(rcFile)
+    outputs.file(resFile)
+
+    dependsOn(generateWindowsResourceFile)
+}
+
 kotlin.targets.withType<KotlinNativeTarget>()
     .flatMap { NativeBuildType.values().map(it.binaries::getExecutable) }
     .forEach { executable -> with(executable) {
@@ -116,6 +184,10 @@ kotlin.targets.withType<KotlinNativeTarget>()
                 from(dynLibs, resources)
                 into(outputDirectory)
             }
+        }
+
+        if (target.konanTarget.family == Family.MINGW) {
+            linkTask.dependsOn(compileWindowsResourceFile)
         }
 
         val buildTypeName = buildType.name.lowercase()
