@@ -1,4 +1,4 @@
-package dev.gluton.flrpc
+package dev.gluton.flrpc.util
 
 import okio.Path
 import okio.Path.Companion.toPath

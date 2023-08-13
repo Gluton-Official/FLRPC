@@ -1,4 +1,4 @@
-package dev.gluton.flrpc
+package dev.gluton.flrpc.util
 
 import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.CStructVar

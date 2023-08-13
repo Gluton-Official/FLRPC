@@ -1,5 +1,6 @@
 package dev.gluton.flrpc
 
+import dev.gluton.flrpc.util.useUtf16StringBuffer
 import platform.windows.DWORD
 import platform.windows.FORMAT_MESSAGE_FROM_SYSTEM
 import platform.windows.FORMAT_MESSAGE_IGNORE_INSERTS

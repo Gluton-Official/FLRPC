@@ -1,5 +1,6 @@
 package dev.gluton.flrpc
 
+import dev.gluton.flrpc.util.EXE_PATH
 import korlibs.logger.AnsiEscape
 import korlibs.logger.AnsiEscape.Companion.blue
 import korlibs.logger.AnsiEscape.Companion.color

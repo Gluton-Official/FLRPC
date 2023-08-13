@@ -1,4 +1,4 @@
-package dev.gluton.flrpc
+package dev.gluton.flrpc.system
 
 import kotlin.properties.ReadOnlyProperty
 

@@ -1,5 +1,6 @@
-package dev.gluton.flrpc
+package dev.gluton.flrpc.system
 
+import dev.gluton.flrpc.util.takeUnlessZero
 import okio.use
 
 open class Application(private val windowHandle: WindowHandle) {

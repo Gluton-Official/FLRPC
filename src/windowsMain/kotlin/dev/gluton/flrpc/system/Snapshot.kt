@@ -1,5 +1,7 @@
-package dev.gluton.flrpc
+package dev.gluton.flrpc.system
 
+import dev.gluton.flrpc.WindowsException
+import dev.gluton.flrpc.util.toBoolean
 import kotlinx.cinterop.CValue
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.nativeHeap

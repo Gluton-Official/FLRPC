@@ -2,6 +2,8 @@ package dev.gluton.flrpc
 
 import dev.gluton.flrpc.FLStudio.Companion.formattedTimeSpent
 import dev.gluton.flrpc.discord.Discord
+import dev.gluton.flrpc.util.toBoolean
+import dev.gluton.flrpc.util.toInt
 import discord.gamesdk.EDiscordLogLevel
 import korlibs.logger.Logger
 import kotlinx.cinterop.ptr
@@ -19,7 +21,7 @@ import dmikushin.tray.tray_loop as trayLoop
 const val APP_ID = 1119828627786322010
 
 fun main() = try {
-    trayInit(tray.ptr)
+    trayInit(Tray.ptr)
     FLRpcLogger.trace { "Initialized tray menu" }
 
     Discord(APP_ID).use discord@{ discord ->

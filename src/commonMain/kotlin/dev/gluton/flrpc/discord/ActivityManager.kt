@@ -1,7 +1,7 @@
 package dev.gluton.flrpc.discord
 
-import dev.gluton.flrpc.NativePointerHolder
-import dev.gluton.flrpc.NativePointerHolder.Companion.use
+import dev.gluton.flrpc.util.NativePointerHolder
+import dev.gluton.flrpc.util.NativePointerHolder.Companion.use
 import discord.gamesdk.DiscordActivity
 import discord.gamesdk.EDiscordActivityPartyPrivacy
 import discord.gamesdk.IDiscordActivityManager

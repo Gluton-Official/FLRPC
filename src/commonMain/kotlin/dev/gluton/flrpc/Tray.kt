@@ -1,5 +1,6 @@
 package dev.gluton.flrpc
 
+import dev.gluton.flrpc.util.ICON_EXT
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.allocArrayOf
 import kotlinx.cinterop.allocArrayOfPointersTo
@@ -12,7 +13,7 @@ import dmikushin.tray.tray_menu as TrayMenuItem
 
 val ICON_PATH = "flrpc.$ICON_EXT"
 
-val tray = nativeHeap.run {
+val Tray = nativeHeap.run {
     alloc<TrayMenu> {
         icon = allocArrayOf(ICON_PATH.encodeToByteArray())
         tooltip = allocArrayOf("FLRPC".encodeToByteArray())
