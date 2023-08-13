@@ -50,17 +50,17 @@ class FLStudio private constructor(windowHandle: WindowHandle) : Application(win
 
     @Suppress("unused")
     private inner class FLEngineImpl(processHandle: ProcessHandle) : ProcessModule(processHandle, engineAddressOffset), FLEngine {
-        override val version: String by utf16StringAddress(0x497F67C, 32)
-        override val songPosition: Duration by address(0x10A6698) { millis: Long -> millis.milliseconds }
-        override val selectedPattern: Int by address(0xF5CCF8)
-        override val bpm: Int by address(0xF5FAF0)
-        override val isPlaying: Boolean by address(0x1080F0C, Int::toBoolean)
+        override val version: String by utf16StringAddress(0x3B51284, 32)
+        override val songPosition: Duration by address(0x10057A8) { millis: Long -> millis.milliseconds }
+        override val selectedPattern: Int by address(0xEBB458)
+        override val bpm: Int by address(0xEBE270)
+        override val isPlaying: Boolean by address(0xFE2284, Int::toBoolean)
 
         override val flpPath: String by utf16StringAddress(::flpPathAddress, MAX_PATH.toLong())
-        private val flpPathAddress: Long by address(0x10829F0) { address: Long -> address - addressOffset }
+        private val flpPathAddress: Long by address(0xF9C840) { address: Long -> address - addressOffset }
         override val flpName: String get() = flpPath.toPath().name
 
-        override val dateCreated: Instant by address(0x1082938) { days: Double ->
+        override val dateCreated: Instant by address(0xF9C788) { days: Double ->
             DelphiInstant.fromEpochDays(days, TimeZone.currentSystemDefault()).toUnixInstant()
         }
         override val timeSpent: Duration
@@ -70,7 +70,7 @@ class FLStudio private constructor(windowHandle: WindowHandle) : Application(win
                 }
                 return previousTimeSpent
             }
-        private val timeSpentStartMarker: Instant by address(0x1082940) { days: Double ->
+        private val timeSpentStartMarker: Instant by address(0xF9C790) { days: Double ->
             DelphiInstant.fromEpochDays(days, TimeZone.currentSystemDefault()).toUnixInstant()
         }
         private val isIdle: Boolean get() = !isPlaying && (isMinimized || !isFocused)
