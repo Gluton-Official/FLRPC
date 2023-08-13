@@ -4,10 +4,10 @@ Discord Rich Presence for FL Studio (current only Windows)
 
 ## Supported FL Versions
 
-| FL Version    | Supported |
-|:--------------|:---------:|
-| `21.0.3.3517` |    ✔️     |
-| `21.0.0.3324` |     ❌     |
+|  FL Version   |  FLRPC Version   |
+|:-------------:|:----------------:|
+| `21.1.0.3713` |     `0.2.1`      |
+| `21.0.3.3517` | `0.1.x`, `0.2.0` |
 
 ## Installation
 
