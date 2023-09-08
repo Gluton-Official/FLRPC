@@ -23,12 +23,14 @@ with the project file name and time spent working displayed beneath.
 
 ![image](https://github.com/Gluton-Official/FLRPC/assets/66543311/e2eee109-4901-4874-a7a6-497c8482cba2)
 
-> If you have manually added FL Studio to your registered games in Discord's Activity Settings, you may have to remove it for FLRPC to display rich presence information.
+> [!IMPORTANT]  
+> If you have manually added FL Studio to your registered games in Discord's Activity Settings,
+> you may have to remove it for FLRPC to display rich presence information.
 
-> You can also run FLRPC manually through FL Studio under Tools > FLRPC, or by running the exe directly.
-> 
-> To close FLRPC manually, click the FLRPC icon in your system tray and select Quit.
+You can also run FLRPC manually through FL Studio under Tools > FLRPC, or by running the exe directly.
+To close FLRPC manually, click the FLRPC icon in your system tray and select Quit.
 
+> [!NOTE]  
 > Due to the way FL Studio loads project files,
 > the time spent working may not be accurate if the project file was opened directly.
 > Opening the Project info (F11) should correct the displayed time.
